@@ -1,0 +1,23 @@
+id: tooluse-integrate
+name: Tool-result integration
+description: Combine a tool's JSON result with a user question into one accurate answer.
+tags: [tooluse, integration]
+user_prompt: >
+  Tool result (from get_weather(city="Berlin")):
+  {"temp_c": 14, "condition": "rain", "wind_kmh": 28, "forecast_hours": 6}
+
+  User question: "Should I bring an umbrella and a jacket to Berlin today?"
+
+  Answer in 1-3 sentences, grounded ONLY in the tool result. Mention at least
+  one specific number from the result.
+system_prompt: You are an agent that integrates tool results into grounded answers.
+rubric:
+  pass_threshold: 0.8
+  rules:
+    - contains: ["umbrella"]
+    - regex: "14|28|6"
+    - contains: ["rain"]
+    - max_length: 500
+    - not_contains: ["maybe it will", "I don't know"]
+metadata:
+  temperature: 0.3

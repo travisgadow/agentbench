@@ -1,0 +1,25 @@
+id: research-factcheck
+name: Fact-checking a short report
+description: Identify which statements in a mini-report are unsupported or wrong given the provided source.
+tags: [research, fact-checking]
+user_prompt: >
+  Fact-check the report below against the source. List every statement that
+  is contradicted by or unsupported by the source, prefixed with "FLAG:".
+  If all statements are supported, reply exactly "ALL_SUPPORTED".
+
+  Source: "Riverbend Dam was built in 1962. It stores 4.2 billion cubic meters
+  and is the region's largest reservoir."
+
+  Report: "Riverbend Dam, completed in 1962, is the region's largest
+  reservoir, storing 4.2 billion cubic meters. It generates 900 MW of power
+  and supplies 40% of the region's drinking water."
+system_prompt: You are a fact-checker. Flag only statements the source does not support.
+rubric:
+  pass_threshold: 0.7
+  rules:
+    - contains: ["FLAG:"]
+    - contains: ["900 MW"]
+    - contains: ["drinking water"]
+    - not_contains: ["ALL_SUPPORTED"]
+metadata:
+  temperature: 0.1

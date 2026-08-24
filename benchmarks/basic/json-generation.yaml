@@ -1,0 +1,22 @@
+id: basic-json-gen
+name: Structured JSON generation
+description: Produce a JSON object with the exact required keys for a described record.
+tags: [basic, json, instruction-following]
+user_prompt: >
+  Given the description, produce a single JSON object (no prose, no markdown
+  fences) with exactly these keys: "name" (string), "year_founded" (integer),
+  "hq_city" (string), "products" (array of strings, 1-5 items).
+
+  Description: "Acme Robotics, founded in 2012 in Pittsburgh, makes warehouse
+  delivery robots and a drone inspection platform."
+system_prompt: You are a strict structured-output generator. JSON only.
+rubric:
+  pass_threshold: 0.8
+  rules:
+    - json_valid: true
+    - json_fields: ["name", "year_founded", "hq_city", "products"]
+    - contains: ["Acme"]
+    - contains: ["Pittsburgh"]
+    - not_contains: ["```"]
+metadata:
+  temperature: 0.1

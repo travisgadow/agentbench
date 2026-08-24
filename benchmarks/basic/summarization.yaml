@@ -1,0 +1,24 @@
+id: basic-summarize
+name: Summarization with length discipline
+description: Summarize a passage in exactly 2-3 sentences without inventing details.
+tags: [basic, summarization]
+user_prompt: >
+  Summarize the following passage in 2-3 sentences. Do not add facts that are
+  not in the passage.
+
+  Passage: "Remote work has become standard at many software companies. A 2025
+  survey found that 61% of engineering teams are fully or partially remote.
+  Productivity metrics were roughly unchanged compared to office work, but
+  onboarding new engineers took longer. Companies report lower real-estate
+  costs, while employees report higher job satisfaction."
+system_prompt: You are a careful summarizer. Stay strictly within the source text.
+rubric:
+  pass_threshold: 0.7
+  rules:
+    - contains: ["remote"]
+    - contains: ["61%"]
+    - contains: ["satisfaction"]
+    - max_length: 600
+    - min_length: 80
+metadata:
+  temperature: 0.4

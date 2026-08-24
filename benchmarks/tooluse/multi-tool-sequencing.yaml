@@ -1,0 +1,28 @@
+id: tooluse-sequence
+name: Multi-tool sequencing
+description: Order multiple dependent tool calls correctly (read before write).
+tags: [tooluse, sequencing]
+user_prompt: >
+  Tools:
+  read_file(path: string) -> string
+  write_file(path: string, content: string)
+  notify(user: string, message: string)
+
+  Task: Update /etc/app/config.json to set "verbose": true, then tell the
+  ops team. You do not know the current file contents.
+
+  Respond with ONLY a JSON array of call objects in execution order:
+  [{"tool": name, "arguments": {...}}, ...]
+system_prompt: You are an agent that plans tool calls in safe execution order.
+rubric:
+  pass_threshold: 0.8
+  rules:
+    - json_valid: true
+    - regex: "read_file"
+    - regex: "write_file"
+    - regex: "notify"
+    # read_file must appear before write_file
+    - regex: "read_file.*write_file"
+    - contains: ["config.json"]
+metadata:
+  temperature: 0.0

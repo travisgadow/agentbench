@@ -1,0 +1,19 @@
+id: basic-reasoning
+name: Multi-step arithmetic reasoning
+description: Solve a multi-step word problem and state the final number explicitly.
+tags: [basic, reasoning]
+user_prompt: >
+  A bakery uses 12 kg of flour per day. It stores 100 kg of flour and receives
+  a 60 kg delivery every 5 days. How many days can the bakery operate before
+  running out of flour (assume it uses flour every day, deliveries happen at
+  the start of the day)? Show your working, then end with a line in the
+  exact form: "Answer: N" where N is the whole number of days.
+system_prompt: You are a careful reasoning engine. Show steps, then give the final answer on the last line.
+rubric:
+  pass_threshold: 0.8
+  rules:
+    - regex: "Answer:\\s*\\d+"
+    - contains: ["12 kg"]
+    - min_length: 80
+metadata:
+  temperature: 0.2

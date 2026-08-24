@@ -1,0 +1,18 @@
+id: research-scope
+name: Scope discipline (stay on topic)
+description: Answer a narrow question without drifting into unrelated territory.
+tags: [research, scope]
+user_prompt: >
+  Answer in at most 80 words: What is the main advantage of local LLM
+  inference for data privacy? Stay strictly on the privacy question — do not
+  discuss cost, hardware, or environmental impact.
+system_prompt: You are a disciplined researcher who stays inside the asked scope.
+rubric:
+  pass_threshold: 0.7
+  rules:
+    - contains: ["privacy"]
+    - max_length: 700
+    - not_contains: ["carbon", "electricity bill", "cheaper", "GPU cost"]
+    - min_length: 50
+metadata:
+  temperature: 0.4

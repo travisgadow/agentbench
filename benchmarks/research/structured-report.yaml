@@ -1,0 +1,22 @@
+id: research-report
+name: Structured report generation
+description: Produce a small structured research report with the required sections.
+tags: [research, report, json]
+user_prompt: >
+  Write a short structured report (max 250 words) on "evaluating local LLMs
+  for agent pipelines". It must contain these four headings exactly:
+  "## Summary", "## Evidence", "## Risks", "## Recommendation".
+  Under Evidence, cite at least two distinct considerations. Under
+  Recommendation, give one concrete next step.
+system_prompt: You are a technical writer producing decision-ready reports.
+rubric:
+  pass_threshold: 0.8
+  rules:
+    - contains: ["## Summary"]
+    - contains: ["## Evidence"]
+    - contains: ["## Risks"]
+    - contains: ["## Recommendation"]
+    - max_length: 2600
+    - min_length: 200
+metadata:
+  temperature: 0.5

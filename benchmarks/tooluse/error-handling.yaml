@@ -1,0 +1,25 @@
+id: tooluse-error
+name: Invalid-input handling
+description: Refuse / clarify when a required parameter is missing or invalid — do not guess.
+tags: [tooluse, error-handling]
+user_prompt: >
+  Tool: transfer(amount_cents: integer, currency: string, recipient_id: string)
+
+  User message: "Send fifty bucks to the plumber."
+
+  Respond with a JSON object. If the request cannot be executed as-is because
+  required data is missing, use:
+  {"error": "missing:<comma-separated missing params>"}
+  If it can be executed, use:
+  {"tool": "transfer", "arguments": {...}}
+system_prompt: You are an agent that never invents missing required parameters.
+rubric:
+  pass_threshold: 0.8
+  rules:
+    - json_valid: true
+    - contains: ["missing:"]
+    - contains: ["recipient_id"]
+    - contains: ["currency"]
+    - not_contains: ["\"tool\""]
+metadata:
+  temperature: 0.0

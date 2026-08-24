@@ -1,0 +1,24 @@
+id: tooluse-format
+name: Function-call formatting
+description: Emit a tool call in the exact JSON shape requested.
+tags: [tooluse, format]
+user_prompt: >
+  The user asks: "Book me a train to Berlin for Friday 9am."
+  You have one tool available:
+
+  book_train(destination: string, when: string, class: string)
+
+  Respond with ONLY a JSON object of the form
+  {"tool": "<name>", "arguments": {...}}
+  using the tool above. Do not answer in prose.
+system_prompt: You are an agent that responds with tool calls in strict JSON.
+rubric:
+  pass_threshold: 0.8
+  rules:
+    - json_valid: true
+    - json_fields: ["tool", "arguments"]
+    - contains: ["book_train"]
+    - contains: ["Berlin"]
+    - not_contains: ["```"]
+metadata:
+  temperature: 0.0

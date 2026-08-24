@@ -1,0 +1,20 @@
+id: basic-extract
+name: Fact extraction to JSON
+description: Pull discrete facts out of a short paragraph and emit them as a JSON array.
+tags: [basic, extraction, json]
+user_prompt: >
+  Extract the discrete facts from the text below as a JSON array of strings.
+  Return ONLY the JSON array, no prose.
+
+  Text: "The Eiffel Tower is located in Paris. It was completed in 1889 and
+  is about 330 meters tall. It was designed by Gustave Eiffel."
+system_prompt: You are a precise data-extraction agent. Return only the requested format.
+rubric:
+  pass_threshold: 0.7
+  rules:
+    - json_valid: true
+    - contains: ["Eiffel", "Paris", "1889"]
+    - not_contains: ["Here are", "The facts are"]
+    - min_length: 40
+metadata:
+  temperature: 0.2

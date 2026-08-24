@@ -1,0 +1,25 @@
+id: research-synthesize
+name: Multi-source synthesis
+description: Merge claims from two short sources into one coherent paragraph without contradiction.
+tags: [research, synthesis]
+user_prompt: >
+  Synthesize the two sources below into a single coherent paragraph (60-120
+  words) about the current state of local-LLM tooling. Do not quote
+  verbatim and do not invent sources.
+
+  Source A: "Open-weight models above 70B now match proprietary models on
+  many reasoning benchmarks, but still trail on long-horizon tool use."
+  Source B: "The dominant open tooling trend in 2026 is standardized agent
+  interfaces (MCP-style) and local inference servers with OpenAI-compatible
+  endpoints."
+system_prompt: You are an analyst who synthesizes multiple sources into neutral prose.
+rubric:
+  pass_threshold: 0.7
+  rules:
+    - contains: ["open"]
+    - contains: ["tool"]
+    - min_length: 200
+    - max_length: 1200
+    - not_contains: ["Source A", "Source B"]
+metadata:
+  temperature: 0.5

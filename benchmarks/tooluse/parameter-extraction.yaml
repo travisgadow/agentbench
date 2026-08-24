@@ -1,0 +1,25 @@
+id: tooluse-extract
+name: Parameter extraction from messy input
+description: Pull the correct typed parameters out of a noisy user request.
+tags: [tooluse, extraction]
+user_prompt: >
+  User message: "ugh, can you PLEASE set my temp to like 22 degrees, no wait
+  21.5, and turn the AC on. Also set the lights to 40%."
+
+  Available tool:
+  set_environment(temperature_celsius: number, ac: boolean, lights_percent: integer)
+
+  Respond with ONLY a JSON object:
+  {"tool": "set_environment", "arguments": {...}}
+  Use the user's final stated values.
+system_prompt: You are an agent that extracts exact parameter values from messy user text.
+rubric:
+  pass_threshold: 0.8
+  rules:
+    - json_valid: true
+    - contains: ["set_environment"]
+    - regex: "21\\.5"
+    - regex: "40"
+    - not_contains: ["22"]
+metadata:
+  temperature: 0.1

@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.venv/
+venv/
+results_*.json
+gate_result.json
+gate_report.md
+comparison.md
+quickstart_report.md

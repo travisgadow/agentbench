@@ -1,0 +1,26 @@
+id: research-citation
+name: Citation accuracy
+description: Attribute each claim to the correct source; do not misattribute.
+tags: [research, citation, fact-checking]
+user_prompt: >
+  For each of the three claims below, state which source (S1 or S2) supports
+  it, or "neither" if it is unsupported. One line per claim, format:
+  "claim_number: S1" / "claim_number: S2" / "claim_number: neither".
+
+  S1: "The city's transit authority expanded the metro by 3 stations in 2024."
+  S2: "A 2025 study found commuters prefer bus rapid transit over new metro lines."
+
+  Claims:
+  1. The metro grew by three stations last year.
+  2. Commuters prefer BRT to metro expansion.
+  3. The city will build a new airport terminal by 2030.
+system_prompt: You are a rigorous citation auditor.
+rubric:
+  pass_threshold: 0.7
+  rules:
+    - regex: "1:\\s*S1"
+    - regex: "2:\\s*S2"
+    - regex: "3:\\s*(neither|S3)"
+    - not_contains: ["maybe", "I think"]
+metadata:
+  temperature: 0.1

@@ -1,0 +1,22 @@
+id: basic-instruction
+name: Instruction following (constrained output)
+description: Follow multiple simultaneous output constraints precisely.
+tags: [basic, instruction-following]
+user_prompt: >
+  Write a reply to a customer who complained about a late delivery. All of the
+  following constraints must hold:
+  1. It must begin with the word "Dear".
+  2. It must be at most 60 words.
+  3. It must contain the phrase "48 hours" exactly once.
+  4. It must not use the word "sorry".
+system_prompt: You are a customer-support writer who follows formatting rules exactly.
+rubric:
+  pass_threshold: 0.7
+  rules:
+    - regex: "^\\s*Dear\\b"
+    - max_length: 450
+    - contains: ["48 hours"]
+    - not_contains: ["sorry"]
+    - min_length: 30
+metadata:
+  temperature: 0.5
