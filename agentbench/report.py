@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
 
 from .benchmark import BenchmarkResult
+
+CHECK = "✅"
+CROSS = "❌"
+WARN = "⚠️"
+EM_DASH = "—"
 
 
 def to_json(result: BenchmarkResult, pretty: bool = True) -> str:
@@ -22,6 +26,10 @@ def _fmt_score(x: float) -> str:
 def _fmt_delta(x: float) -> str:
     sign = "+" if x > 0 else ""
     return f"{sign}{x:.2f}"
+
+
+def _pass_mark(passed: bool) -> str:
+    return CHECK if passed else CROSS
 
 
 def to_markdown(
@@ -57,7 +65,7 @@ def to_markdown(
         lines.append("| Task | Score | Passed | Latency (s) |")
         lines.append("|---|---:|:---:|---:|")
         for t in result.tasks:
-            mark = "\u2705" if t.passed else ("\u274c" if not t.error else "\u26a0\ufe0f")
+            mark = CHECK if t.passed else (CROSS if not t.error else WARN)
             lines.append(f"| {t.task_name} | {_fmt_score(t.score)} | {mark} | {t.latency_s:.3f} |")
         lines.append("")
 
@@ -68,11 +76,11 @@ def to_markdown(
         lines.append(f"### {t.task_name} — score {_fmt_score(t.score)}")
         lines.append("")
         if t.error:
-            lines.append(f"> \u26a0\ufe0f error: {t.error}")
+            lines.append(f"> {WARN} error: {t.error}")
             lines.append("")
             continue
         for r in t.rules:
-            mark = "\u2713" if r.passed else "\u2717"
+            mark = "✓" if r.passed else "✗"
             weight = f" (w={r.weight:g})" if r.weight != 1.0 else ""
             lines.append(f"- {mark} `{r.name}`{weight}: {r.detail or ''}")
         lines.append("")
@@ -100,17 +108,17 @@ def _comparison_table(a: BenchmarkResult, b: BenchmarkResult) -> list[str]:
     for ta in a.tasks:
         tb = b_by_id.get(ta.task_id)
         if tb is None:
-            lines.append(f"| {ta.task_name} | {_fmt_score(ta.score)} | — | — | {'\u2705' if ta.passed else '\u274c'} | — |")
+            lines.append(f"| {ta.task_name} | {_fmt_score(ta.score)} | {EM_DASH} | {EM_DASH} | {_pass_mark(ta.passed)} | {EM_DASH} |")
             continue
         delta = ta.score - tb.score
         lines.append(
             f"| {ta.task_name} | {_fmt_score(ta.score)} | {_fmt_score(tb.score)} | "
-            f"{_fmt_delta(delta)} | {'\u2705' if ta.passed else '\u274c'} | {'\u2705' if tb.passed else '\u274c'} |"
+            f"{_fmt_delta(delta)} | {_pass_mark(ta.passed)} | {_pass_mark(tb.passed)} |"
         )
     # tasks only present in B
     a_ids = {t.task_id for t in a.tasks}
     for tb in b.tasks:
         if tb.task_id not in a_ids:
-            lines.append(f"| {tb.task_name} | — | {_fmt_score(tb.score)} | — | — | {'\u2705' if tb.passed else '\u274c'} |")
+            lines.append(f"| {tb.task_name} | {EM_DASH} | {_fmt_score(tb.score)} | {EM_DASH} | {EM_DASH} | {_pass_mark(tb.passed)} |")
     lines.append("")
     return lines

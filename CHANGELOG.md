@@ -37,3 +37,7 @@ project adheres to [Semantic Versioning](https://semver.org/).
   compare (deltas, missing tasks, JSON/dict/file inputs), CLI (validate good/bad,
   run mock, compare fixtures), and an integration test that validates and runs
   the full shipped 15-task suite offline.
+
+### Fixed
+- Markdown report rendering now works on Python 3.10/3.11 (no backslashes
+  inside f-string expressions).
