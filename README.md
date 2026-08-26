@@ -74,7 +74,8 @@ rubric:
     - not_contains: ["Here are"]
     - min_length: 40
     - regex: "\\d{4}"
-    # - python: my_checker_fn    # programmatic tasks only (not YAML)
+    # a custom checker — in code, or a `module.path:func` reference usable in YAML:
+    # - python: "my_pkg.checks:is_valid"   # resolved lazily at eval time
 metadata:
   temperature: 0.2
 ```
@@ -99,11 +100,11 @@ tasks:
 |---|---|
 | `contains: "x"` / `contains: [a, b]` | substring present (any-of for lists) |
 | `not_contains: "x"` | substring absent (any-of for lists) |
-| `json_valid: true` | output parses as JSON (tolerates markdown fences / surrounding prose) |
+| `json_valid: true` | output parses as JSON (tolerates markdown fences / surrounding prose). `strict: true` (default) requires an object/array and rejects scalars; `strict: false` accepts any valid JSON value |
 | `json_fields: [a, b]` | JSON object contains keys `a`, `b` |
 | `min_length: N` / `max_length: N` | character bounds |
 | `regex: "..."` | pattern must match somewhere in the output |
-| `python: fn` | custom checker `fn(output: str) -> bool` (programmatic only) |
+| `python: fn` / `python: "pkg.mod:fn"` | custom checker `fn(output: str)` — a *truthy* return passes. Accepts an in-memory callable or a `module.path:func` reference (usable in YAML) |
 
 Each rule gets a `weight` (default `1.0`). Score = weighted fraction of passing
 rules, in `[0, 1]`. The task **passes** when score ≥ `pass_threshold` (default `0.7`).
@@ -129,7 +130,7 @@ result = bench.run(client, concurrency=2)
 # or offline
 result = bench.run(MockClient(response='{"ok": true}'))
 
-print(result.summary())          # mean score, pass rate, p95 latency
+print(result.summary())          # mean score, pass rate, p95 latency, token totals
 with open("out.json", "w") as fh: fh.write(to_json(result))
 with open("out.md",   "w") as fh: fh.write(to_markdown(result))
 ```
@@ -140,6 +141,13 @@ Filter subsets before running:
 bench.filter(tags=["json"]).run(client)
 bench.filter(task_ids=["extract-facts"]).run(client)
 ```
+
+## Reports
+
+`to_markdown()` and the CLI render a **scorecard** (score bars, pass/fail
+badges, and summed token totals), a per-task table, and a rule-by-rule
+breakdown with ✓/✗ marks. `compare()` adds a side-by-side table with ▲/▼
+per-task deltas against a second run.
 
 ## Examples
 

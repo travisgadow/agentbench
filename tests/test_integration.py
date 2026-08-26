@@ -35,3 +35,15 @@ def test_full_offline_run_produces_reports():
     md = to_markdown(result)
     assert '"task_count": 15' in js
     assert "## Tasks" in md
+
+
+def test_markdown_report_has_scorecard_and_bars():
+    bench = Benchmark.load_path(ROOT / "benchmarks" / "basic")
+    client = MockClient(response='{"tool": "x", "note": "ok"}')
+    result = bench.run(client, model="m")
+    md = to_markdown(result)
+    assert "Scorecard" in md
+    assert "## Tasks" in md
+    assert "## Rule detail" in md
+    assert "\u2588" in md  # score bars render
+    assert "agentbench" in md

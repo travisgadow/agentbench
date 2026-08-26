@@ -3,13 +3,23 @@
 Each rule is evaluated independently and yields a pass/fail plus optional
 detail. The overall score is the weighted fraction of passing rules, and the
 task passes when the score meets the rubric's ``pass_threshold``.
+
+``json_valid`` semantics:
+    * ``strict: true`` (default) — the output must contain a JSON *object* or
+      *array*. Bare scalars (``42``, ``"str"``, ``true``) are rejected.
+    * ``strict: false`` — *any* valid JSON value is accepted, including scalars.
+    Extraction is robust to markdown fences and to prose around a JSON span.
+
+``python`` rules accept either an in-memory callable or a ``module.path:func``
+string reference (resolvable from YAML); the checker receives the raw output
+string and a *truthy* return value counts as a pass.
 """
 from __future__ import annotations
 
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, Callable, Optional
 
 from .task import Rule, Rubric
 
@@ -24,30 +34,109 @@ class RuleResult:
     weight: float = 1.0
 
 
+def _balanced_span(text: str, start: int) -> Optional[str]:
+    """Return the balanced ``{...}``/``[...]`` span starting at ``start``.
+
+    Tracks nesting while respecting JSON string literals and escapes, so
+    braces/brackets inside strings do not break the match.
+    """
+    opener = text[start]
+    closer = "}" if opener == "{" else ("]" if opener == "[" else None)
+    if closer is None:
+        return None
+    depth = 0
+    in_str = False
+    escaped = False
+    for idx in range(start, len(text)):
+        ch = text[idx]
+        if in_str:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == opener:
+            depth += 1
+        elif ch == closer:
+            depth -= 1
+            if depth == 0:
+                return text[start:idx + 1]
+    return None
+
+
+def _strip_fence(text: str) -> Optional[str]:
+    """Return the body of a ```json``` fence, or None if not fenced."""
+    if not text.lstrip().startswith("```"):
+        return None
+    body = text.strip("`").strip()
+    lines = body.splitlines()
+    if lines and lines[0].strip().lower() in {"json", "jsonc", "js", "javascript"}:
+        body = "\n".join(lines[1:]).strip()
+    return body
+
+
 def _extract_json(text: str) -> Optional[Any]:
-    """Parse JSON from a model output, tolerating markdown fences and noise."""
+    """Parse JSON from a model output, tolerating markdown fences and prose.
+
+    Unlike a naive first-``{``-to-last-``}`` slice, this scans for the first
+    *balanced, valid* JSON object or array, so prose with several JSON spans
+    (or a single object surrounded by text) is handled correctly.
+    """
     if text is None:
         return None
     text = text.strip()
-    candidates: List[str] = [text]
-    if text.startswith("```"):
-        body = text.strip("`").strip()
-        # drop a leading language tag line like ```json
-        lines = body.splitlines()
-        if lines and lines[0].strip().lower() in {"json", "jsonc", "js", "javascript"}:
-            body = "\n".join(lines[1:]).strip()
-        candidates.append(body)
-    # first object/array span
-    for opener, closer in (("{", "}"), ("[", "]")):
-        i, j = text.find(opener), text.rfind(closer)
-        if i != -1 and j != -1 and j > i:
-            candidates.append(text[i:j + 1])
-    for candidate in candidates:
+
+    def _try(candidate: Optional[str]) -> Optional[Any]:
+        if not candidate:
+            return None
         try:
             return json.loads(candidate)
         except (json.JSONDecodeError, TypeError, ValueError):
-            continue
+            return None
+
+    for candidate in (text, _strip_fence(text)):
+        value = _try(candidate)
+        if value is not None:
+            return value
+
+    # scan every balanced object/array span, in order of appearance
+    for opener in ("{", "["):
+        pos = text.find(opener)
+        while pos != -1:
+            span = _balanced_span(text, pos)
+            value = _try(span)
+            if value is not None:
+                return value
+            pos = text.find(opener, pos + 1)
     return None
+
+
+def _resolve_python(value: Any) -> Callable[[str], Any]:
+    """Resolve a ``python`` rule value to a callable.
+
+    Accepts an in-memory callable or a ``module.path:func`` string reference
+    (the latter importable from YAML task files).
+    """
+    if callable(value):
+        return value
+    if isinstance(value, str):
+        module_path, sep, attr_path = value.rpartition(":")
+        if not sep or not module_path or not attr_path:
+            raise ValueError(f"invalid python rule reference {value!r} (expected 'module.path:func')")
+        import importlib
+
+        module = importlib.import_module(module_path)
+        obj: Any = module
+        for part in attr_path.split("."):
+            obj = getattr(obj, part)
+        if not callable(obj):
+            raise ValueError(f"python rule reference {value!r} did not resolve to a callable")
+        return obj
+    raise ValueError(f"python rule must be a callable or 'module.path:func' reference, got {type(value).__name__}")
 
 
 def _rule_detail(rule: Rule) -> str:
@@ -143,12 +232,13 @@ def evaluate_rule(rule: Rule, output: Any) -> RuleResult:
 
     if name == "python":
         try:
-            result = p["python"](text)
+            checker = _resolve_python(p.get("python"))
+            result = checker(text)
         except Exception as exc:  # a broken checker should not kill the run
-            return fail(f"checker raised {type(exc).__name__}: {exc}")
-        if result is True:
-            return ok()
-        return fail("checker returned False")
+            return fail(f"checker {type(exc).__name__}: {exc}")
+        if result:
+            return ok(f"checker returned {result!r}")
+        return fail(f"checker returned {result!r}")
 
     return fail(f"unknown rule '{name}'")
 

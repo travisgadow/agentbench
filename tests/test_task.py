@@ -71,3 +71,36 @@ def test_task_yaml_roundtrip(tmp_path):
     loaded = TaskDef.load(path)
     assert loaded.id == task.id
     assert [r.name for r in loaded.rubric.rules] == [r.name for r in task.rubric.rules]
+
+
+def test_empty_contains_rejected():
+    with pytest.raises(TaskError, match="non-empty"):
+        Rule.from_dict({"contains": ""})
+    with pytest.raises(TaskError, match="empty list"):
+        Rule.from_dict({"contains": []})
+    with pytest.raises(TaskError, match="non-empty"):
+        Rule.from_dict({"contains": ["", "x"]})
+
+
+def test_empty_not_contains_rejected():
+    with pytest.raises(TaskError, match="empty list"):
+        Rule.from_dict({"not_contains": []})
+
+
+def test_empty_json_fields_rejected():
+    with pytest.raises(TaskError, match="empty list"):
+        Rule.from_dict({"json_fields": []})
+    with pytest.raises(TaskError, match="non-empty"):
+        Rule.from_dict({"json_fields": ""})
+
+
+def test_python_ref_string_accepted():
+    rule = Rule.from_dict({"python": "agentbench.scorer:_strip_fence"})
+    assert rule.params["python"] == "agentbench.scorer:_strip_fence"
+
+
+def test_python_bad_ref_rejected():
+    with pytest.raises(TaskError, match="python"):
+        Rule.from_dict({"python": "not-a-function"})
+    with pytest.raises(TaskError, match="python"):
+        Rule.from_dict({"python": 123})

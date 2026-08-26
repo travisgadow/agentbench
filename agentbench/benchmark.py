@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Union
 
+import requests
+
 from .runner import EndpointError, LLMClient, LLMResponse, MockClient
 from .scorer import RuleResult, score_rubric
 from .task import TaskDef, TaskError
@@ -75,6 +77,23 @@ class BenchmarkResult:
         idx = int(round(0.95 * (len(latencies) - 1)))
         return latencies[idx]
 
+    @property
+    def total_usage(self) -> Dict[str, int]:
+        """Sum of per-task token usage across the run (prompt/completion/total)."""
+        def _int(v: Any) -> int:
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return 0
+
+        totals = {"prompt": 0, "completion": 0, "total": 0}
+        for task in self.tasks:
+            usage = task.usage or {}
+            totals["prompt"] += _int(usage.get("prompt_tokens"))
+            totals["completion"] += _int(usage.get("completion_tokens"))
+            totals["total"] += _int(usage.get("total_tokens"))
+        return totals
+
     def summary(self) -> Dict[str, Any]:
         return {
             "endpoint": self.endpoint,
@@ -87,6 +106,7 @@ class BenchmarkResult:
             "mean_score": round(self.mean_score, 4),
             "pass_rate": round(self.pass_rate, 4),
             "p95_latency_s": round(self.p95_latency, 4),
+            "tokens": self.total_usage,
         }
 
     def to_dict(self) -> Dict[str, Any]:
@@ -206,7 +226,11 @@ class Benchmark:
             }
             try:
                 resp: LLMResponse = client.chat(messages, **overrides)
-            except (EndpointError, Exception) as exc:  # noqa: BLE001 - record, don't crash the suite
+            except (EndpointError, requests.RequestException) as exc:
+                # Record transport-level failures per task (endpoint down, 4xx,
+                # 5xx, timeouts). Genuine programmer errors in user client code
+                # (TypeError, AttributeError, ...) intentionally propagate so a
+                # broken client does not silently zero-score the whole suite.
                 return TaskResult(
                     task_id=task.id,
                     task_name=task.name,

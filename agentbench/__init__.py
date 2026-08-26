@@ -7,7 +7,7 @@ Define benchmark tasks in YAML, run them against any OpenAI-compatible
 endpoint (Ollama, vLLM, cloud), score outputs with composable weighted
 rubrics, and produce side-by-side comparison reports. No cloud required.
 """
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .task import Rule, Rubric, TaskDef, TaskError  # noqa: F401
 from .scorer import RuleResult, score_rubric  # noqa: F401

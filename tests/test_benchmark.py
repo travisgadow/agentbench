@@ -103,3 +103,26 @@ def test_run_records_errors(mock_client):
     assert result.tasks[0].error is not None
     assert result.tasks[0].passed is False
     assert result.summary()["errors"] == 1
+
+
+def test_run_propagates_programmer_errors():
+    # a broken client (non-transport error) must not be silently swallowed
+    class BadClient:
+        def chat(self, messages, **overrides):
+            raise TypeError("bad client")
+
+    task = TaskDef(id="x", name="X", user_prompt="hi", rubric=Rubric(rules=[]))
+    with pytest.raises(TypeError):
+        Benchmark([task]).run(BadClient())
+
+
+def test_total_usage_aggregation(mock_client, sample_task):
+    second = TaskDef(
+        id="second", name="Second", user_prompt="two",
+        rubric=Rubric(rules=[Rule(name="contains", params={"contains": "x"})]),
+    )
+    bench = Benchmark([sample_task, second])
+    result = bench.run(mock_client)
+    tokens = result.summary()["tokens"]
+    # mock usage is 5/15/20 per call; two tasks -> 10/30/40
+    assert tokens == {"prompt": 10, "completion": 30, "total": 40}

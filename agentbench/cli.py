@@ -12,7 +12,9 @@ import sys
 from typing import List, Optional
 
 import typer
+from rich import box
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
 from . import __version__
@@ -30,6 +32,22 @@ app = typer.Typer(
 )
 console = Console()
 err_console = Console(stderr=True)
+
+
+def _text_bar(score: float, width: int = 10) -> str:
+    """A block score bar for terminal output, e.g. ``███░░``."""
+    filled = int(round(max(0.0, min(1.0, float(score))) * width))
+    return "█" * filled + "░" * (width - filled)
+
+
+def _score_style(score: float, errored: bool = False) -> str:
+    if errored:
+        return "dim yellow"
+    if score >= 0.8:
+        return "bold green"
+    if score >= 0.5:
+        return "yellow"
+    return "red"
 
 
 def _version_callback(value: bool) -> None:
@@ -58,14 +76,13 @@ def validate(
     except TaskError as exc:
         err_console.print(f"[red]\u274c invalid:[/red] {exc}")
         raise typer.Exit(1)
-    for task in bench.tasks:
-        for rule in task.rubric.rules:
-            if verbose and rule.name == "python" and not callable(rule.params.get("python")):
-                err_console.print(f"[red]\u274c {task.id}: python rule must be callable[/red]")
-                raise typer.Exit(1)
+    if verbose:
+        for task in bench.tasks:
+            rules = ", ".join(r.name for r in task.rubric.rules) or "\u2014"
+            console.print(f"  \u2022 [bold]{task.id}[/bold] \u2014 {rules}")
     console.print(
         f"[green]\u2705 valid:[/green] [bold]{len(bench.tasks)}[/bold] task(s) in [italic]{bench.name}[/italic] "
-        f"({sum(len(t.rubric.rules) for t in bench.tasks)} rubric rule(s))"
+        f"\u00b7 {sum(len(t.rubric.rules) for t in bench.tasks)} rubric rule(s)"
     )
 
 
@@ -136,21 +153,45 @@ def run(
     client = _client_from_args(endpoint, model, api_key, timeout, retries, temperature, max_tokens, mock)
     result = bench.run(client, concurrency=concurrency)
 
-    table = Table(title=f"agentbench — {result.model} @ {result.endpoint}")
-    table.add_column("Task", overflow="fold")
+    table = Table(
+        title=f"\U0001f3c1 agentbench \u2014 {result.model} @ {result.endpoint}",
+        box=box.ROUNDED,
+        title_justify="center",
+        show_lines=True,
+    )
+    table.add_column("Task", overflow="fold", min_width=18)
     table.add_column("Score", justify="right")
+    table.add_column("Bar")
     table.add_column("Pass", justify="center")
     table.add_column("Latency", justify="right")
-    table.add_column("Error", style="red", overflow="fold", max_width=40)
+    table.add_column("Error", style="dim", overflow="fold", max_width=42)
     for t in result.tasks:
-        mark = "[green]\u2705[/green]" if t.passed else ("[red]\u274c[/red]" if not t.error else "[yellow]\u26a0[/yellow]")
-        table.add_row(t.task_name, f"{t.score:.2f}", mark, f"{t.latency_s:.2f}s", t.error or "")
+        errored = t.error is not None
+        style = _score_style(t.score, errored=errored)
+        mark = "[yellow]\u26a0[/yellow]" if errored else ("[green]\u2705[/green]" if t.passed else "[red]\u274c[/red]")
+        table.add_row(
+            t.task_name,
+            f"[{style}]{t.score:.2f}[/]",
+            f"[{style}]{_text_bar(t.score)}[/]",
+            mark,
+            f"{t.latency_s:.2f}s",
+            t.error or "",
+        )
     console.print(table)
+
     s = result.summary()
-    console.print(
-        f"mean={s['mean_score']:.2f}  pass_rate={s['pass_rate']:.0%}  "
-        f"p95_latency={result.p95_latency:.2f}s  errors={s['errors']}"
+    tok = s.get("tokens", {})
+    verdict = "bold green" if s["pass_rate"] >= 0.8 else ("yellow" if s["pass_rate"] >= 0.5 else "red")
+    panel_body = (
+        f"Mean score  [{verdict}]{s['mean_score']:.2f}[/]    "
+        f"Pass rate  [{verdict}]{s['pass_rate']:.0%}[/]    "
+        f"p95 latency  {result.p95_latency:.2f}s"
     )
+    panel_meta = (
+        f"Tasks {s['task_count']}  (\u2705 {s['passed']} \u00b7 \u274c {s['failed']} \u00b7 \u26a0 {s['errors']})   "
+        f"tokens {tok.get('total', 0):,}   ({result.model} @ {result.endpoint})"
+    )
+    console.print(Panel(f"{panel_body}\n[dim]{panel_meta}[/]", title="\U0001f4ca Scorecard", box=box.ROUNDED, border_style="cyan"))
 
     if json_out:
         print(to_json(result))

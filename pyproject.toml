@@ -1,6 +1,6 @@
 [project]
 name = "agentbench"
-version = "0.1.0"
+version = "0.2.0"
 description = "A local-first benchmarking and eval harness for agentic AI pipelines."
 readme = "README.md"
 requires-python = ">=3.10"

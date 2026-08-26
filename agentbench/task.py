@@ -50,11 +50,34 @@ def _check_threshold(threshold: Any, context: str) -> float:
 
 
 def _check_contains(rule: Dict[str, Any], name: str, context: str) -> None:
-    _check_type(rule.get(name), (str, list), f"{context}.{name}")
-    if isinstance(rule[name], list):
-        for i, item in enumerate(rule[name]):
-            if not isinstance(item, str):
-                raise TaskError(f"{context}.{name}[{i}] must be a string")
+    """Validate ``contains``/``not_contains`` values.
+
+    Empty strings match everything (or nothing) and silently pass, and empty
+    lists pass vacuously while still adding weight — both are misconfigurations,
+    so they are rejected at parse time.
+    """
+    value = rule.get(name)
+    _check_type(value, (str, list), f"{context}.{name}")
+    if isinstance(value, list):
+        if not value:
+            raise TaskError(f"{context}.{name} must not be an empty list")
+        for i, item in enumerate(value):
+            if not isinstance(item, str) or item == "":
+                raise TaskError(f"{context}.{name}[{i}] must be a non-empty string")
+    elif value == "":
+        raise TaskError(f"{context}.{name} must be a non-empty string")
+
+
+def _valid_python_ref(ref: str) -> bool:
+    """True if ``ref`` looks like a ``module.path:func`` reference."""
+    module_path, sep, attr_path = ref.rpartition(":")
+    if not sep:
+        return False
+
+    def _dotted(s: str) -> bool:
+        return bool(s) and all(part.isidentifier() for part in s.split("."))
+
+    return _dotted(module_path) and _dotted(attr_path)
 
 
 @dataclass
@@ -88,6 +111,14 @@ class Rule:
                 raise TaskError(f"{context}.json_valid must be a mapping or boolean")
         elif name == "json_fields":
             _check_type(value, (str, list), f"{context}.json_fields")
+            if isinstance(value, list):
+                if not value:
+                    raise TaskError(f"{context}.json_fields must not be an empty list")
+                for i, key in enumerate(value):
+                    if not isinstance(key, str) or key == "":
+                        raise TaskError(f"{context}.json_fields[{i}] must be a non-empty string")
+            elif value == "":
+                raise TaskError(f"{context}.json_fields must be a non-empty key or list of keys")
             rule.params["json_fields"] = value
         elif name in ("min_length", "max_length"):
             _check_type(value, (int, float), f"{context}.{name}")
@@ -102,11 +133,17 @@ class Rule:
                 raise TaskError(f"{context}.regex: invalid pattern: {exc}") from None
             rule.params["regex"] = value
         elif name == "python":
-            if not callable(value):
+            # A ``python`` rule is either an in-memory callable (programmatic
+            # construction) or a dotted ``module.path:func`` reference that can
+            # be expressed in YAML and resolved lazily at eval time.
+            if callable(value):
+                rule.params["python"] = value
+            elif isinstance(value, str) and _valid_python_ref(value):
+                rule.params["python"] = value
+            else:
                 raise TaskError(
-                    f"{context}.python must be a callable (programmatic task construction only)"
+                    f"{context}.python must be a callable or a 'module.path:func' string reference"
                 )
-            rule.params["python"] = value
         if "weight" in data:
             rule.weight = _check_weight(data["weight"], context)
         return rule
@@ -114,7 +151,8 @@ class Rule:
     def to_dict(self) -> Dict[str, Any]:
         out: Dict[str, Any] = {self.name: self.params.get(self.name, True)}
         if self.name == "python":
-            out["python"] = "<callable>"
+            value = self.params.get("python")
+            out["python"] = value if isinstance(value, str) else "<callable>"
         if self.weight != 1.0:
             out["weight"] = self.weight
         return out

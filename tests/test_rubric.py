@@ -105,3 +105,30 @@ def test_empty_output_does_not_crash():
 def test_unicode_output():
     rubric = Rubric(rules=[Rule(name="contains", params={"contains": "übung"})])
     assert score_rubric(rubric, "Guten Tag, übung macht den Meister")["passed"] is True
+
+
+def test_json_valid_multiple_objects_in_prose():
+    # prose with several JSON spans must still extract valid JSON (P0 #3)
+    rule = _rule("json_valid", strict=True)
+    assert evaluate_rule(rule, 'Here is {"a": 1} and then {"b": 2} after').passed
+    assert evaluate_rule(rule, 'Result: {"ok": true}').passed
+    assert not evaluate_rule(rule, "no json here at all").passed
+
+
+def test_json_valid_array_is_strict_ok():
+    assert evaluate_rule(_rule("json_valid", strict=True), "[1, 2, 3]").passed
+
+
+def test_python_rule_truthy_non_bool_passes():
+    # a truthy non-bool return value counts as a pass (P0 #2)
+    ok = evaluate_rule(_rule("python", python=lambda t: [1, 2]), "anything")
+    assert ok.passed
+    bad = evaluate_rule(_rule("python", python=lambda t: []), "anything")
+    assert not bad.passed
+
+
+def test_python_rule_from_module_ref():
+    # a 'module.path:func' reference resolves at eval time (P2 #7)
+    rule = _rule("python", python="agentbench.task:_valid_python_ref")
+    assert evaluate_rule(rule, "a:b").passed
+    assert not evaluate_rule(rule, "nope").passed

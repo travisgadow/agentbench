@@ -27,17 +27,18 @@ class LLMResponse:
 
 
 def _endpoint_url(endpoint: str, model: str) -> str:
-    """Build the chat-completions URL and validate the endpoint shape."""
+    """Build the OpenAI-compatible ``/chat/completions`` URL from a base endpoint.
+
+    Accepts the full path, a ``.../v1`` base, or a bare host, and returns the
+    canonical ``.../v1/chat/completions`` form exposed by Ollama, vLLM and most
+    OpenAI-compatible servers. (``model`` is kept for a stable signature.)
+    """
     base = endpoint.rstrip("/")
     if base.endswith("/chat/completions"):
-        url = base
-    elif base.endswith("/v1") or base.endswith("/v1/"):
-        url = f"{base}/chat/completions"
-    elif base.endswith("/api/chat"):
-        url = base  # e.g. vLLM's /api/chat is already the full path
-    else:
-        url = f"{base}/v1/chat/completions"
-    return url
+        return base
+    if base.endswith("/v1"):
+        return f"{base}/chat/completions"
+    return f"{base}/v1/chat/completions"
 
 
 class LLMClient:
@@ -158,10 +159,7 @@ class MockClient:
             if m.get("role") == "user":
                 user = str(m.get("content", ""))
         if "FAIL_TIMEOUT" in user:
-            import requests as _rq
-            raise EndpointError(
-                f"connection failed after 1 attempts: simulated timeout"
-            )
+            raise EndpointError("connection failed after 1 attempts: simulated timeout")
         if "FAIL_400" in user:
             raise EndpointError("HTTP 400: simulated client error")
         if "FAIL_500" in user:
